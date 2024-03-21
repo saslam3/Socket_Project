@@ -204,16 +204,21 @@ class Manager:
 
 
     def deregister(self, peer_name):
-        if peer_name in self.peers:
-            if peer_name == self.dht_leader:
-                self.teardown_dht(peer_name)
-            del self.peers[peer_name]
-            response = "SUCCESS"
-        else:
-            response = "FAILURE"
-        peer_socket = self.peer_sockets.get(peer_name)
-        peer_address = self.peer_address.get(peer_name)
-        peer_socket.sendto(response.encode(), peer_address)
+            if peer_name in self.peers:
+                peer_info = self.peers[peer_name]
+                peer_socket = self.peer_sockets.get(peer_name)
+                if peer_socket is not None:
+                    # Ensure the peer_socket is not None before sending data
+                    peer_address = peer_info['address']
+                    peer_socket.sendto("deregister".encode(), peer_address)
+                    # Close the socket after sending data
+                    peer_socket.close()
+                    del self.peer_sockets[peer_name]  # Remove the socket from the dictionary
+                del self.peers[peer_name]
+                response = "SUCCESS"
+            else:
+                response = "FAILURE"
+            return response
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -252,37 +257,3 @@ if __name__ == "__main__":
 
     manager_thread = threading.Thread(target=manager.start)
     manager_thread.start()
-
-    # Register peers
-    print(manager.register_peer(peer1))
-    print(manager.register_peer(peer2))
-    print(manager.register_peer(peer3))
-
-    # Building DHT
-    # Assuming "Peer1" is chosen as the leader to build the DHT
-    print(manager.setup_dht("Peer1", 5, 1996))
-
-    # Querying DHT
-    event_ids = [5536849, 2402920, 5539287, 55770111]
-    for event_id in event_ids:
-        # Assuming manager handles query requests directly
-        print(manager.handle_query("Peer2", event_id))
-        print(manager.handle_query("Peer3", event_id))
-        # Add similar commands for other peers if necessary
-
-    # Leaving DHT
-    # Assuming "Peer2" is leaving the DHT
-    print(manager.leave_dht("Peer2"))
-
-    # Joining DHT
-    # Assuming "Peer4" is joining the DHT
-    print(manager.join_dht("Peer4"))
-
-    # Teardown DHT
-    # Assuming the leader "Peer1" issues teardown-dht command
-    print(manager.teardown_dht("Peer1"))
-
-    # Graceful Termination
-    # Assuming all peers de-register and exit
-    print(manager.deregister("Peer1"))
-    print(manager.deregister("Peer3"))
